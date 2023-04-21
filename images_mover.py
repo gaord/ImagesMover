@@ -1,12 +1,6 @@
 import subprocess
 import argparse
 
-# List of Docker image to be moved to the local registry
-#image_list = ["quay.io/prometheus/node-exporter:v1.3.1", "docker.io/grafana/loki:2.4.0", "docker.io/grafana/promtail:2.4.0", "quay.io/ceph/haproxy:2.3", "quay.io/ceph/keepalived:2.1.5", "docker.io/maxwo/snmp-notifier:v1.2.1"]
-#image_list = ["quay.io/prometheus/alertmanager:v0.23.0", "quay.io/prometheus/prometheus:v2.33.4", "quay.io/ceph/ceph-grafana:8.3.5"]
-# Local Registry URL
-#registry_url = "10.123.123.123:5000"
-
 def read_image_list(file_path):
     with open(file_path, "r") as f:
         image_list = f.read().splitlines()
@@ -17,26 +11,31 @@ def pull_save_as_tar_gz(image_list, save_tar):
     for image_name in image_list:
         subprocess.run(["docker", "pull", image_name])
     if save_tar:
+        print("Saving images to image.tar file")
         # Use subprocess to run the docker save command and save the images to a tar file
         subprocess.run(["docker", "save", "-o", "image.tar"] + image_list)
-
+        print("Compressing image.tar file")
         # Compress the tar file using gzip
         subprocess.run(["gzip", "image.tar"])
 
 # file_path is in tar.gz format
 def tag_push_to_registry(image_list, registry_url, file_path="", project_name=None):
     if file_path != "":
+        print("Decompressing image.tar.gz file")
         # Use subprocess to run the gunzip command and decompress the tar.gz file
         subprocess.run(["gunzip", file_path])
 
         # Get the name of the decompressed tar file
         tar_file = file_path[:-3]
-
+        print("Loading images from " + tar_file + " file")
         # Use subprocess to run the docker load command and load the images from the tar file
         subprocess.run(["docker", "load", "-i", tar_file])
-
+        with open(tar_file, "rb") as tar:
+            determined_image_list = [image.tags[0] for image in client.images.load(tar) if hasattr(image, 'tags') and len(image.tags) > 0]
+    else:
+        determined_image_list = image_list
     # Loop through the list of image names and tag and push each image to the specified registry
-    for image_name in image_list:
+    for image_name in determined_image_list:
         # Get the image name without the hostname
         image_name_without_hostname = image_name.split("/")[-1]
 
