@@ -1,5 +1,6 @@
 import subprocess
 import argparse
+import docker
 
 def read_image_list(file_path):
     with open(file_path, "r") as f:
